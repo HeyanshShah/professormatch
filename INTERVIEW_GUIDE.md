@@ -42,7 +42,7 @@ transaction. `schema_migrations` records what has run, so each migration runs on
 The moderator role is checked in the database on every request, so a demotion takes effect immediately.
 
 ## Numbers to remember
-**36 tests** · **2 migrations** · **11 tables-worth of constraints** · **3 recommendation modes** · CI runs API tests, the app build, and the Docker build.
+**36 tests** · **2 migrations** · **3 recommendation modes** · CI runs API tests, the app build, and the Docker build.
 
 ## Problems I solved
 1. **Unfair rankings:** a new professor with one great review sat at #1. The Bayesian average fixed it, and a test locks it in.
