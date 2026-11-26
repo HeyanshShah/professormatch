@@ -44,7 +44,7 @@ export default function ReviewScreen({ route, navigation }) {
       else await api.createReview(id, review);
       navigation.goBack();
     } catch (e) {
-      setError(e.message);
+      setError(e.message);  // includes moderation reasons, e.g. "offensive language"
     } finally {
       setBusy(false);
     }
@@ -66,7 +66,7 @@ export default function ReviewScreen({ route, navigation }) {
       <Field label="Course code" value={course} onChangeText={setCourse} placeholder="CS 146" autoCapitalize="characters" />
       <Field label="Your review" value={body} onChangeText={setBody} multiline maxLength={1000}
         placeholder="How were the lectures, exams, and grading?" style={[styles.multi]} />
-      <Text style={styles.count}>{body.length}/1000 · Tags like “Clear lectures” are added automatically from your text.</Text>
+      <Text style={styles.count}>{body.length}/1000 · Tags like “Clear lectures” are added automatically. Profanity and personal info (emails, phone numbers) are blocked.</Text>
       <ErrorText>{error}</ErrorText>
       <Button title={existing ? 'Save changes' : 'Post review'} onPress={save} loading={busy} testID="post-review" />
       {existing ? <View style={{ marginTop: space(3) }}><Button title="Delete review" variant="secondary" onPress={remove} /></View> : null}

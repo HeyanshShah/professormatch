@@ -1,7 +1,7 @@
 -- ProfMatch database schema (PostgreSQL)
 -- Normalized: each fact lives in exactly one table, linked by foreign keys.
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id            SERIAL PRIMARY KEY,
   email         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,              -- bcrypt hash, never the real password
@@ -9,19 +9,19 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS departments (
+CREATE TABLE departments (
   id   SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS professors (
+CREATE TABLE professors (
   id            SERIAL PRIMARY KEY,
   name          TEXT NOT NULL,
   department_id INTEGER NOT NULL REFERENCES departments(id),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS reviews (
+CREATE TABLE reviews (
   id               SERIAL PRIMARY KEY,
   professor_id     INTEGER NOT NULL REFERENCES professors(id) ON DELETE CASCADE,
   user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -37,5 +37,5 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 -- Indexes make lookups fast as the tables grow.
-CREATE INDEX IF NOT EXISTS idx_professors_name ON professors (lower(name));
-CREATE INDEX IF NOT EXISTS idx_reviews_professor ON reviews (professor_id);
+CREATE INDEX idx_professors_name ON professors (lower(name));
+CREATE INDEX idx_reviews_professor ON reviews (professor_id);

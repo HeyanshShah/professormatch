@@ -26,4 +26,25 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { signToken, requireAuth };
+// Like requireAuth, but anonymous visitors are allowed (req.user stays undefined).
+function optionalAuth(req, _res, next) {
+  const header = req.headers.authorization || '';
+  if (header.startsWith('Bearer ')) {
+    try {
+      const p = jwt.verify(header.slice(7), SECRET);
+      req.user = { id: p.sub, name: p.name };
+    } catch { /* ignore bad tokens for public routes */ }
+  }
+  next();
+}
+
+// Role check happens against the database, so demoting a moderator takes effect immediately.
+function requireModerator(pool) {
+  return async (req, res, next) => {
+    const { rows } = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (rows[0]?.role !== 'moderator') return res.status(403).json({ error: 'Moderators only' });
+    return next();
+  };
+}
+
+module.exports = { signToken, requireAuth, optionalAuth, requireModerator };

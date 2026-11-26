@@ -1,0 +1,19 @@
+# Render Blueprint: New -> Blueprint -> pick this repo. Creates the database + API (free tier).
+databases:
+  - name: profmatch-db
+    plan: free
+    databaseName: profmatch
+services:
+  - type: web
+    name: profmatch-api
+    runtime: docker
+    rootDir: server
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: profmatch-db, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PGSSLMODE
+        value: require

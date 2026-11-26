@@ -14,9 +14,6 @@ function validateReview(b) {
   if (!int(b.rating)) return 'Rating must be a whole number from 1 to 5';
   if (!int(b.difficulty)) return 'Difficulty must be a whole number from 1 to 5';
   if (typeof b.wouldTakeAgain !== 'boolean') return 'Would-take-again must be yes or no';
-  if (!b.courseCode || !/^[A-Za-z]{2,5}\s?\d{1,3}[A-Za-z]?$/.test(b.courseCode.trim())) {
-    return 'Course code should look like "CS 146"';
-  }
   const len = (b.body || '').trim().length;
   if (len < 10 || len > 1000) return 'Review must be 10-1000 characters';
   return null;

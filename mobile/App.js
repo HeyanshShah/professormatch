@@ -8,7 +8,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/AuthContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ProfessorScreen from './src/screens/ProfessorScreen';
+import ModerationScreen from './src/screens/ModerationScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import RecommendScreen from './src/screens/RecommendScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import { colors } from './src/theme';
@@ -42,6 +44,8 @@ function Routes() {
           <Stack.Screen name="Review" component={ReviewScreen}
             options={({ route }) => ({ title: route.params.existing ? 'Edit review' : 'Write a review', presentation: 'modal' })} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Recommend" component={RecommendScreen} options={{ title: 'Best professor for…' }} />
+          <Stack.Screen name="Moderation" component={ModerationScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -11,7 +11,7 @@ const router = express.Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true,
   legacyHeaders: false, skip: () => process.env.NODE_ENV === 'test' });
 
-const publicUser = (u) => ({ id: u.id, email: u.email, displayName: u.display_name });
+const publicUser = (u) => ({ id: u.id, email: u.email, displayName: u.display_name, role: u.role || 'student' });
 
 router.post('/signup', limiter, async (req, res, next) => {
   try {
@@ -21,7 +21,7 @@ router.post('/signup', limiter, async (req, res, next) => {
     const hash = await bcrypt.hash(req.body.password, 10);
     const { rows } = await pool.query(
       `INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3)
-       RETURNING id, email, display_name`,
+       RETURNING id, email, display_name, role`,
       [email, hash, req.body.displayName.trim()],
     );
     return res.status(201).json({ token: signToken(rows[0]), user: publicUser(rows[0]) });
@@ -45,11 +45,12 @@ router.post('/login', limiter, async (req, res, next) => {
 // Profile: who am I + my reviews
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
-    const u = await pool.query('SELECT id, email, display_name FROM users WHERE id = $1', [req.user.id]);
+    const u = await pool.query('SELECT id, email, display_name, role FROM users WHERE id = $1', [req.user.id]);
     if (!u.rows[0]) return res.status(404).json({ error: 'User not found' });
     const r = await pool.query(
-      `SELECT r.id, r.course_code, r.rating, r.created_at, p.id AS professor_id, p.name AS professor_name
-       FROM reviews r JOIN professors p ON p.id = r.professor_id
+      `SELECT r.id, c.code AS course_code, r.rating, r.status, r.helpful_count, r.created_at,
+              p.id AS professor_id, p.name AS professor_name
+       FROM reviews r JOIN professors p ON p.id = r.professor_id JOIN courses c ON c.id = r.course_id
        WHERE r.user_id = $1 ORDER BY r.created_at DESC`, [req.user.id]);
     return res.json({ user: publicUser(u.rows[0]), reviews: r.rows });
   } catch (e) { return next(e); }
@@ -60,7 +61,7 @@ router.patch('/me', requireAuth, async (req, res, next) => {
     const name = String(req.body.displayName || '').trim();
     if (!name || name.length > 50) return res.status(400).json({ error: 'Display name must be 1-50 characters' });
     const { rows } = await pool.query(
-      'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, display_name', [name, req.user.id]);
+      'UPDATE users SET display_name = $1 WHERE id = $2 RETURNING id, email, display_name, role', [name, req.user.id]);
     return res.json({ user: publicUser(rows[0]) });
   } catch (e) { return next(e); }
 });

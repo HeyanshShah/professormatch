@@ -30,15 +30,24 @@ export const api = {
   login: (email, password) => request('/auth/login', { method: 'POST', body: { email, password } }),
   me: () => request('/auth/me'),
   updateMe: (displayName) => request('/auth/me', { method: 'PATCH', body: { displayName } }),
-  searchProfessors: (q, department) => {
+  searchProfessors: ({ q, department, course, sort } = {}) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (department) params.set('department', department);
+    if (course) params.set('course', course);
+    if (sort) params.set('sort', sort);
     return request(`/professors?${params.toString()}`);
   },
   departments: () => request('/professors/departments'),
-  professor: (id) => request(`/professors/${id}`),
+  professor: (id, sort = 'recent') => request(`/professors/${id}?sort=${sort}`),
+  moreReviews: (id, cursor, sort = 'recent') => request(`/professors/${id}/reviews?cursor=${encodeURIComponent(cursor)}&sort=${sort}`),
   createReview: (id, review) => request(`/professors/${id}/reviews`, { method: 'POST', body: review }),
   updateReview: (id, review) => request(`/professors/${id}/reviews/mine`, { method: 'PUT', body: review }),
   deleteReview: (id) => request(`/professors/${id}/reviews/mine`, { method: 'DELETE' }),
+  vote: (reviewId) => request(`/reviews/${reviewId}/helpful`, { method: 'POST' }),
+  report: (reviewId, reason) => request(`/reviews/${reviewId}/report`, { method: 'POST', body: { reason } }),
+  courses: (q) => request(`/courses?q=${encodeURIComponent(q || '')}`),
+  recommendations: (code, preference) => request(`/courses/${encodeURIComponent(code.replace(' ', ''))}/recommendations?preference=${preference}`),
+  modQueue: () => request('/moderation/queue'),
+  modAction: (id, action) => request(`/moderation/reviews/${id}`, { method: 'POST', body: { action } }),
 };

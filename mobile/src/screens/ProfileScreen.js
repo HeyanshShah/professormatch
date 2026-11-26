@@ -41,12 +41,15 @@ export default function ProfileScreen({ navigation }) {
             <RatingBadge value={r.rating} size={34} />
             <View style={{ marginLeft: space(3) }}>
               <Text style={{ fontWeight: '700', color: colors.text }}>{r.professor_name}</Text>
-              <Text style={{ color: colors.muted }}>{r.course_code}</Text>
+              <Text style={{ color: colors.muted }}>{r.course_code} · 👍 {r.helpful_count}{r.status !== 'visible' ? ` · ${r.status}` : ''}</Text>
             </View>
           </Card>
         </Pressable>
       ))}
-      <View style={{ marginTop: space(6) }}><Button title="Log out" variant="secondary" onPress={logout} /></View>
+      {user.role === 'moderator' && (
+        <View style={{ marginTop: space(6) }}><Button title="Moderation queue" onPress={() => navigation.navigate('Moderation')} /></View>
+      )}
+      <View style={{ marginTop: space(3) }}><Button title="Log out" variant="secondary" onPress={logout} /></View>
     </ScrollView>
   );
 }

@@ -1,89 +1,98 @@
 # ProfMatch
 
-A full-stack mobile app where students search, rate, and review professors.
+[![tests](https://github.com/HeyanshShah/professormatch/actions/workflows/tests.yml/badge.svg)](https://github.com/HeyanshShah/professormatch/actions/workflows/tests.yml)
+
+A full-stack mobile app for finding and reviewing professors. It ranks professors fairly with a
+**Bayesian average**, recommends the best professor for a course based on what you want,
+analyzes review text with NLP (tags + sentiment), and moderates content automatically.
 
 ![screens](docs/screens.png)
 
 ## Features
-- **Search & filter** professors by name and department, with average rating,
-  difficulty, and "would take again" %, all computed in SQL
-- **Professor pages** with every review plus the most common auto-generated tags
-- **Write / edit / delete reviews**: 1–5 rating, difficulty, would-take-again, course, text
-- **Duplicate-review prevention**: one review per student per professor, enforced by a
-  database `UNIQUE (user_id, professor_id)` constraint (the app offers "Edit" instead)
-- **Text-based feedback parsing**: review text is scanned for phrases ("clear",
-  "tough grader", "office hours"...) and turned into tags, with negation handling
-  ("not clear" doesn't count as "Clear lectures")
-- **Secure auth**: bcrypt password hashing, JWT sessions (7-day expiry), token stored in
-  the phone's secure keychain (expo-secure-store), login rate limiting, server-side
-  validation, parameterized SQL (no SQL injection)
-- **Profile**: change display name, see your reviews, log out
+- **Fair rankings:** a Bayesian average (the IMDb Top-250 formula) stops a professor with one 5★ review
+  from outranking one with 40 reviews averaging 4.7.
+- **Recommendations:** "best professor for CS 146" for an *Easy A*, *Balanced*, or *Learn the most*
+  preference. Each result shows a match %, a confidence level based on review count, and an explanation of *why*.
+- **Review NLP:**
+  - **Auto-tags** like "Clear lectures" or "Tough grader", with negation handling ("not clear" doesn't count).
+  - **Sentiment** scoring using a VADER-style lexicon with negation and intensifiers.
+  - **Tone summary** per professor (% positive / negative).
+- **Moderation:**
+  - **Blocks disguised profanity** ("1d10t", "f.u.c.k", "stuuupid") using leetspeak normalization.
+  - **Blocks personal info** (emails, phone numbers) and shouting.
+  - **Student reports** auto-hide a review after 3 reports, and a moderator role restores or removes it.
+- **Helpful votes:** one per student per review, enforced by a primary key, so you can't vote on your own review.
+- **Courses as first-class data:**
+  - **Search by course code** ("cs146", "CS-146", and "CS 146" all match).
+  - **Professor ↔ course** links.
+- **Infinite scroll** with **keyset (cursor) pagination**, which stays fast and never duplicates or skips rows the way OFFSET can.
+- **Secure auth:**
+  - **Credentials:** bcrypt hashing and 7-day JWTs stored in the phone's secure keychain.
+  - **Abuse limits:** login rate limiting.
+  - **Hardening:** Helmet security headers, parameterized SQL, server-side validation, and DB-checked roles.
+- **Duplicate reviews prevented** by `UNIQUE (user_id, professor_id)`; the app offers "Edit" instead.
 
 ## Tech stack
 | Layer | Tech |
 |---|---|
-| Mobile app | React Native, Expo, React Navigation, React Context |
-| API | Node.js, Express, JWT, bcrypt, express-rate-limit |
-| Database | PostgreSQL (normalized schema, foreign keys, CHECK + UNIQUE constraints, indexes) |
-| Testing | Jest + Supertest (18 tests against a real Postgres database) |
+| Mobile | React Native, Expo, React Navigation, React Context, expo-secure-store |
+| API | Node.js, Express, JWT, bcrypt, Helmet, express-rate-limit |
+| Database | PostgreSQL: normalized schema, foreign keys, CHECK/UNIQUE constraints, indexes, **versioned migrations** |
+| DevOps | Docker, docker-compose, Render Blueprint, GitHub Actions (API tests on a Postgres service container + app build + Docker build) |
+| Testing | Jest + Supertest: **36 tests** against a real Postgres database |
 
 ## Architecture
 ```
- Phone (React Native / Expo)
-   │  HTTPS + JSON, "Authorization: Bearer <JWT>"
-   ▼
- Express REST API (Node.js)
-   │  parameterized SQL through a connection pool
-   ▼
- PostgreSQL: users ── reviews ── professors ── departments
+ React Native app ── HTTPS/JSON + Bearer JWT ──▶ Express API ── pooled, parameterized SQL ──▶ PostgreSQL
+                                                  │
+                                    tags · sentiment · moderation · Bayesian ranking
 ```
+**Schema:**
+- `users`
+- `departments`
+- `professors`
+- `courses`
+- `professor_courses` (many-to-many)
+- `reviews`: FKs to all of the above, plus status, sentiment, tags and helpful_count
+- `review_votes`
+- `review_reports`
+- `schema_migrations`
 
-### Database schema
-- `users(id, email UNIQUE, password_hash, display_name)`
-- `departments(id, name UNIQUE)`
-- `professors(id, name, department_id → departments)`
-- `reviews(id, professor_id → professors, user_id → users, course_code, rating 1–5,
-  difficulty 1–5, would_take_again, body, tags[], UNIQUE(user_id, professor_id))`
+Migration `002` shows a real data migration: it moves free-text course codes into a `courses` table,
+backfills foreign keys, and drops the old column. A test proves v1 data survives the upgrade.
 
-### API
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| POST | /auth/signup | – | create account |
-| POST | /auth/login | – | log in, get token |
-| GET / PATCH | /auth/me | ✔ | profile + my reviews / change name |
-| GET | /professors?q=&department= | – | search |
-| GET | /professors/departments | – | department list |
-| GET | /professors/:id | – | details, tags, reviews |
-| POST | /professors/:id/reviews | ✔ | add review (409 if duplicate) |
-| PUT / DELETE | /professors/:id/reviews/mine | ✔ | edit / delete my review |
+## API (highlights)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/professors?q=&course=&department=&sort=best\|most_reviewed\|easiest` | Bayesian-ranked search |
+| GET | `/professors/:id` · `/professors/:id/reviews?cursor=&sort=recent\|helpful` | details · infinite scroll |
+| POST/PUT/DELETE | `/professors/:id/reviews[/mine]` | moderated, tagged, sentiment-scored |
+| GET | `/courses?q=` · `/courses/:code/recommendations?preference=` | course search · recommendations |
+| POST | `/reviews/:id/helpful` · `/reviews/:id/report` | toggle vote · report |
+| GET/POST | `/moderation/queue` · `/moderation/reviews/:id` | moderators only |
+| POST/GET/PATCH | `/auth/signup` · `/auth/login` · `/auth/me` | |
 
 ## Run it
-You need **Node.js 20+** and **PostgreSQL** (or Docker).
-
 ```bash
-# 1. Database (Docker is easiest)
-docker run --name profmatch-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=profmatch -p 5432:5432 -d postgres:16
-
-# 2. API
-cd server
-cp .env.example .env
-npm install
-npm run db:seed        # create tables + demo professors/reviews
-npm run dev            # http://localhost:4000
-
-# 3. App (new terminal)
-cd mobile
-npm install
-npx expo start         # press w for web, or scan the QR code with Expo Go
+docker compose up -d db            # PostgreSQL
+cd server && cp .env.example .env && npm install
+npm run db:seed                    # migrations + demo data
+npm run dev                        # API on :4000
+cd ../mobile && npm install && npx expo start   # press w for web, or scan with Expo Go
 ```
-On a real phone, set `EXPO_PUBLIC_API_URL=http://<your-computer-ip>:4000` first,
-because the phone can't reach "localhost" on your computer.
+Demo logins: `demo1@sjsu.edu` / `password123` · moderator: `mod@sjsu.edu` / `password123`.
+Demo reviews are generated (deterministic, clearly fake) so the rankings have something to show.
 
-Demo login: `demo1@sjsu.edu` / `password123`
+**Deploy:** in Render, choose New → Blueprint and pick this repo. `render.yaml` creates the free Postgres database and the API, and the
+container runs migrations on start.
 
 ## Tests
 ```bash
-cd server
-docker exec profmatch-db createdb -U postgres profmatch_test
-npm test
+cd server && npm test     # needs Postgres; set TEST_DATABASE_URL
 ```
+The 36 tests cover:
+- **Migrations:** v1→v2 data migration, idempotency.
+- **Auth:** hashing, tokens, security headers.
+- **Ranking:** Bayesian ordering, course and department search, recommendations.
+- **Reviews:** moderation (disguised profanity, PII, shouting, the Scunthorpe problem), sentiment, tags, cursor pagination, votes.
+- **Reporting:** auto-hide, then moderator restore.
